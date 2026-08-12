@@ -1,7 +1,3 @@
-# ============================================================
-# CELL 1: MOUNT DRIVE & INSTALL LIBRARIES
-# ============================================================
-
 from google.colab import drive
 drive.mount('/content/drive')
 
@@ -30,14 +26,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from matplotlib.patches import Rectangle
 
-# Set small figure sizes globally
 plt.rcParams['figure.figsize'] = (6, 4)
 plt.rcParams['figure.dpi'] = 100
 
 print("✅ Libraries installed!")
-# ============================================================
-# CELL 2: DOWNLOAD CIFAKE DATASET
-# ============================================================
 
 !pip install -q kaggle
 
@@ -52,9 +44,7 @@ FAKE_TEST = "/content/CIFAKE/test/FAKE"
 print(f"REAL_TRAIN: {len(os.listdir(REAL_TRAIN))} images")
 print(f"FAKE_TRAIN: {len(os.listdir(FAKE_TRAIN))} images")
 print("✅ Dataset ready!")
-# ============================================================
-# CELL 3: NOISE RESIDUAL FUNCTIONS (from FIRST code)
-# ============================================================
+
 
 def extract_noise_residual_gradient(img, img_size=96):
     """Gradient-based noise residual"""
@@ -119,9 +109,7 @@ def show_noise_residual_demo(img_path):
     plt.show()
 
 print("✅ Noise residual functions loaded")
-# ============================================================
-# CELL 4: LOAD IMAGE PATHS
-# ============================================================
+
 
 N_TRAIN = 3000
 N_TEST = 1000
@@ -143,9 +131,6 @@ test_labels = [1] * len(real_test) + [0] * len(fake_test)
 
 print(f"Training: {len(train_paths)} images ({len(real_train)} REAL + {len(fake_train)} FAKE)")
 print(f"Test: {len(test_paths)} images ({len(real_test)} REAL + {len(fake_test)} FAKE)")
-# ============================================================
-# CELL 5: DATA LOADER WITH NOISE RESIDUAL (4-Channel Input)
-# ============================================================
 
 IMG_SIZE = 96
 
@@ -194,9 +179,6 @@ def data_generator(paths, labels, batch_size=32, augment=False):
                 yield np.array(batch_images), np.array(batch_labels)
 
 print("✅ Data loader ready! Input shape: (96, 96, 4) - RGB + Noise Residual")
-# ============================================================
-# CELL 6: SPATIAL PATCH CLUSTER MAPS (from FIRST code CELL 10)
-# ============================================================
 
 print("Generating spatial patch cluster maps...")
 
@@ -224,16 +206,12 @@ plt.show()
 
 print("\n✅ Spatial patch maps saved")
 print("   INTERPRETATION: FAKE images show more heterogeneous clustering patterns")
-# ============================================================
-# CELL 7: NOISE RESIDUAL DEMO (from FIRST code CELL 11)
-# ============================================================
+
 
 sample = os.path.join(REAL_TRAIN, os.listdir(REAL_TRAIN)[0])
 show_noise_residual_demo(sample)
 print("✅ Noise residual demo saved")
-# ============================================================
-# CELL 8: BUILD CUSTOM CNN (4-Channel Input for RGB + Noise)
-# ============================================================
+
 
 def create_cnn_with_noise(input_shape=(96, 96, 4)):
     """CNN that takes RGB + Noise Residual as input"""
@@ -293,9 +271,7 @@ cnn_model.compile(
 )
 cnn_model.summary()
 print("✅ CNN model built! Input: (96,96,4) = RGB + Noise Residual")
-# ============================================================
-# CELL 9: TRAIN CNN MODEL
-# ============================================================
+
 
 print("="*60)
 print("TRAINING CNN ON RGB + NOISE RESIDUAL INPUT")
@@ -324,9 +300,7 @@ history = cnn_model.fit(
 )
 
 print("✅ CNN training complete!")
-# ============================================================
-# CELL 10: TRAINING HISTORY PLOT
-# ============================================================
+
 
 fig, axes = plt.subplots(1, 2, figsize=(8, 3))
 
@@ -352,19 +326,14 @@ plt.show()
 
 print(f"✅ Training history saved")
 print(f"Best validation accuracy: {max(history.history['val_accuracy'])*100:.1f}%")
-# ============================================================
-# CELL 11: EXTRACT FEATURES FROM CNN (dense_256 layer)
-# ============================================================
 
-# Load best model
+
 cnn_model.load_weights('/content/best_cnn_with_noise.h5')
 print("✅ Best model loaded")
 
-# Create feature extractor
 feature_extractor = Model(inputs=cnn_model.input, outputs=cnn_model.get_layer('dense_256').output)
 print("✅ Feature extractor created (256-dim features)")
 
-# Load test images
 print("\nLoading test images...")
 test_images = []
 test_labels_clean = []
@@ -379,12 +348,10 @@ test_images = np.array(test_images)
 test_labels_clean = np.array(test_labels_clean)
 print(f"Test images shape: {test_images.shape}")
 
-# Extract CNN features
 print("\nExtracting CNN features...")
 cnn_features = feature_extractor.predict(test_images, verbose=1)
 print(f"CNN Features shape: {cnn_features.shape}")
 
-# Load training images
 print("\nLoading training images...")
 train_images = []
 train_labels_clean = []
@@ -402,23 +369,18 @@ print(f"Train images shape: {train_images.shape}")
 print("\nExtracting training features...")
 train_cnn_features = feature_extractor.predict(train_images, verbose=1)
 print(f"Train CNN Features shape: {train_cnn_features.shape}")
-# ============================================================
-# CELL 12: TRAIN ML CLASSIFIERS & GET RESULTS
-# ============================================================
 
 print("Scaling features...")
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(train_cnn_features)
 X_test_scaled = scaler.transform(cnn_features)
 
-# CNN alone predictions
 print("\n📊 CNN alone predictions...")
 cnn_pred_probs = cnn_model.predict(test_images, verbose=0)
 cnn_pred = (cnn_pred_probs > 0.5).astype(int).flatten()
 cnn_accuracy = accuracy_score(test_labels_clean, cnn_pred)
 print(f"CNN (RGB + Noise) alone: {cnn_accuracy*100:.2f}%")
 
-# XGBoost
 print("\n🏆 Training XGBoost...")
 xgb = XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.05,
                     subsample=0.8, colsample_bytree=0.8, random_state=42, verbosity=0)
@@ -427,7 +389,6 @@ y_pred_xgb = xgb.predict(X_test_scaled)
 acc_xgb = accuracy_score(test_labels_clean, y_pred_xgb)
 print(f"XGBoost: {acc_xgb*100:.2f}%")
 
-# Random Forest
 print("🌲 Training Random Forest...")
 rf = RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42, n_jobs=-1)
 rf.fit(X_train_scaled, train_labels_clean)
@@ -435,7 +396,6 @@ y_pred_rf = rf.predict(X_test_scaled)
 acc_rf = accuracy_score(test_labels_clean, y_pred_rf)
 print(f"Random Forest: {acc_rf*100:.2f}%")
 
-# SVM
 print("⚙️ Training SVM...")
 svm = SVC(kernel='rbf', C=5.0, gamma='scale', random_state=42, probability=True)
 svm.fit(X_train_scaled, train_labels_clean)
@@ -443,7 +403,6 @@ y_pred_svm = svm.predict(X_test_scaled)
 acc_svm = accuracy_score(test_labels_clean, y_pred_svm)
 print(f"SVM: {acc_svm*100:.2f}%")
 
-# Ensemble
 print("🤝 Training Ensemble...")
 ensemble = VotingClassifier(estimators=[('xgb', xgb), ('rf', rf), ('svm', svm)], voting='soft')
 ensemble.fit(X_train_scaled, train_labels_clean)
@@ -459,27 +418,21 @@ print(f"Random Forest:       {acc_rf*100:.2f}%")
 print(f"SVM:                 {acc_svm*100:.2f}%")
 print(f"🏆 ENSEMBLE:         {acc_ens*100:.2f}%")
 
-# Store for later
 cm_ens = confusion_matrix(test_labels_clean, y_pred_ens)
 cm_rf = confusion_matrix(test_labels_clean, y_pred_rf)
 cm_cnn = confusion_matrix(test_labels_clean, cnn_pred)
-# ============================================================
-# CELL 13: CONFUSION MATRICES (from FIRST code CELL 7)
-# ============================================================
+
 
 fig, axes = plt.subplots(1, 3, figsize=(10, 3))
 
-# CNN Confusion Matrix
 disp_cnn = ConfusionMatrixDisplay(cm_cnn, display_labels=["FAKE", "REAL"])
 disp_cnn.plot(ax=axes[0], cmap="Purples", values_format='d')
 axes[0].set_title(f"CNN (RGB+Noise)\n{cnn_accuracy*100:.1f}%", fontsize=9)
 
-# Ensemble Confusion Matrix
 disp_ens = ConfusionMatrixDisplay(cm_ens, display_labels=["FAKE", "REAL"])
 disp_ens.plot(ax=axes[1], cmap="Greens", values_format='d')
 axes[1].set_title(f"CNN + Ensemble\n{acc_ens*100:.1f}%", fontsize=9)
 
-# Random Forest Confusion Matrix
 disp_rf = ConfusionMatrixDisplay(cm_rf, display_labels=["FAKE", "REAL"])
 disp_rf.plot(ax=axes[2], cmap="Blues", values_format='d')
 axes[2].set_title(f"CNN + RF\n{acc_rf*100:.1f}%", fontsize=9)
@@ -492,9 +445,7 @@ print("\n✅ Confusion matrices saved")
 print(f"\nEnsemble Results:")
 print(f"  FAKE correctly identified: {cm_ens[0,0]}/{cm_ens[0,0]+cm_ens[0,1]}")
 print(f"  REAL correctly identified: {cm_ens[1,1]}/{cm_ens[1,1]+cm_ens[1,0]}")
-# ============================================================
-# CELL 14: t-SNE CLUSTER PLOT (from FIRST code CELL 8)
-# ============================================================
+
 
 print("Generating t-SNE visualization...")
 
@@ -524,9 +475,6 @@ plt.savefig("/content/tsne_plot.png", dpi=120, bbox_inches='tight')
 plt.show()
 
 print("✅ t-SNE plot saved")
-# ============================================================
-# CELL 15: PCA CLUSTER PLOT (from FIRST code CELL 9)
-# ============================================================
 
 n_pca = min(2000, len(X_train_scaled))
 indices = np.random.choice(len(X_train_scaled), n_pca, replace=False)
@@ -559,9 +507,7 @@ plt.show()
 print(f"\n✅ PCA plot saved")
 print(f"   PC1 captures {explained_var[0]*100:.1f}% of variance")
 print(f"   PC2 captures {explained_var[1]*100:.1f}% of variance")
-# ============================================================
-# CELL 16: COMPARISON WITH 7 PAPERS (from FIRST code CELL 12)
-# ============================================================
+
 
 print("="*80)
 print("COMPARISON TABLE: DEEPFAKE DETECTION METHODS")
@@ -577,9 +523,7 @@ comparison_data = {
         "Jia et al. (Color Distribution)",
         "Jheelan & Pudaruth (GAN Fingerprint)",
         "Alanazi et al. (AI-Guard Mobile)",
-        "**Ours (CNN + Noise)**",
-        "**Ours (CNN + RF)**",
-        "**Ours (CNN + Ensemble)**"
+        
     ],
     "Year": [
         "2024", "2025", "2025", "2025", "2025", "2022", "2024", "2026", "2026", "2026"
@@ -598,7 +542,7 @@ comparison_data = {
         "94.1/98.3",
         f"{cnn_accuracy*100:.2f}",
         f"{acc_rf*100:.2f}",
-        f"**{acc_ens*100:.2f}**"
+        
     ],
     "Hardware": [
         "GPU", "GPU", "GPU", "GPU", "GPU", "GPU", "GPU", "**CPU**", "**CPU**", "**CPU**"
@@ -624,9 +568,7 @@ print(f"""
 
 comparison_df.to_csv("/content/literature_comparison.csv", index=False)
 print("\n✅ Comparison table saved")
-# ============================================================
-# CELL 17: RESULTS BAR CHART (from FIRST code CELL 13 & 14)
-# ============================================================
+
 
 methods = ['CNN\n(Noise)', 'CNN+\nRF', 'CNN+\nSVM', 'CNN+\nXGB', 'CNN+\nEnsemble']
 acc = [cnn_accuracy*100, acc_rf*100, acc_svm*100, acc_xgb*100, acc_ens*100]
@@ -655,9 +597,7 @@ plt.show()
 
 print(f"\n🏆 BEST RESULT: CNN + Ensemble with {acc_ens*100:.2f}% accuracy")
 print(f"📈 Improvement over CNN alone: +{acc_ens*100 - cnn_accuracy*100:.1f}%")
-# ============================================================
-# CELL 18: SAMPLE PREDICTIONS WITH VISIBLE BORDERS
-# ============================================================
+
 
 def visualize_predictions_with_borders(cnn_model, ensemble_model, feature_extractor, scaler, paths, labels, num_samples=8):
     """Visualize predictions with THICK visible borders"""
@@ -727,9 +667,7 @@ print("Generating sample predictions with VISIBLE borders...")
 visualize_predictions_with_borders(cnn_model, ensemble, feature_extractor, scaler,
                                    test_paths, test_labels_clean, num_samples=8)
 print("✅ Sample predictions saved to /content/sample_predictions.png")
-# ============================================================
-# CELL 19: CNN ACTIVATION MAPS (FIXED - No Hardcoded Layer Names)
-# ============================================================
+
 
 def visualize_activations_fixed(model, img_path):
     """Visualize CNN activations at different layers (dynamically finds conv layers)"""
@@ -852,7 +790,6 @@ def visualize_activations_fixed(model, img_path):
     else:
         print("No conv layer found for REAL vs FAKE comparison")
 
-# Run the fixed function
 print("Generating CNN activation maps...")
 sample_real = os.path.join(REAL_TRAIN, os.listdir(REAL_TRAIN)[0])
 visualize_activations_fixed(cnn_model, sample_real)
